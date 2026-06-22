@@ -1,83 +1,88 @@
 import { useState, useCallback, useMemo } from 'react'
-import { generateReportDescription } from '@/lib/http/openaiClient'
+import { generateDailyReports, generateWeeklyReports, generateMonthlyReport } from '@/lib/http/geminiClient'
 import { getWeeksInMonth, getMonthRange, groupWorklogsByDate, getWorkdaysInRange } from '@/lib/dateHelpers'
 import { format } from 'date-fns'
 
 export function useReportGeneration({ worklogs = [], config, year, month }) {
-  const [dailyDescriptions, setDailyDescriptions] = useState({})
-  const [weeklyDescriptions, setWeeklyDescriptions] = useState({})
-  const [monthlyDescription, setMonthlyDescription] = useState(null)
+  const [dailyDescriptions,   setDailyDescriptions]   = useState({})
+  const [weeklyDescriptions,  setWeeklyDescriptions]  = useState({})
+  const [monthlyDescription,  setMonthlyDescription]  = useState(null)
   const [loading, setLoading] = useState({})
-  const [errors, setErrors] = useState({})
+  const [errors,  setErrors]  = useState({})
 
-  const byDate = useMemo(() => groupWorklogsByDate(worklogs), [worklogs])
-  const weeks = useMemo(() => getWeeksInMonth(year, month), [year, month])
+  const byDate   = useMemo(() => groupWorklogsByDate(worklogs), [worklogs])
+  const weeks    = useMemo(() => getWeeksInMonth(year, month), [year, month])
   const { startDate, endDate } = useMemo(() => getMonthRange(year, month), [year, month])
   const workdays = useMemo(() => getWorkdaysInRange(startDate, endDate), [startDate, endDate])
 
-  const setLoadingKey = (key, val) => setLoading((prev) => ({ ...prev, [key]: val }))
-  const setErrorKey = (key, val) => setErrors((prev) => ({ ...prev, [key]: val }))
+  const monthLabel = format(new Date(year, month, 1), 'MMMM yyyy')
 
-  const generateDaily = useCallback(async () => {
-    for (const date of workdays) {
-      const entries = byDate[date] || []
-      if (entries.length === 0) continue
-      const key = `day-${date}`
-      setLoadingKey(key, true)
-      setErrorKey(key, null)
-      try {
-        const label = format(new Date(date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
-        const desc = await generateReportDescription(config.openaiKey, entries, label)
-        setDailyDescriptions((prev) => ({ ...prev, [date]: desc }))
-      } catch (e) {
-        setErrorKey(key, e.message)
-      } finally {
-        setLoadingKey(key, false)
-      }
-    }
-  }, [workdays, byDate, config.openaiKey])
-
-  const generateWeekly = useCallback(async () => {
-    for (const week of weeks) {
-      const wDays = getWorkdaysInRange(week.startDate, week.endDate)
+  // Build the weekly structure expected by generateWeeklyReports
+  const byWeek = useMemo(() =>
+    weeks.map((week) => {
+      const wDays   = getWorkdaysInRange(week.startDate, week.endDate)
       const entries = wDays.flatMap((d) => byDate[d] || [])
-      if (entries.length === 0) continue
-      const key = `week-${week.startDate}`
-      setLoadingKey(key, true)
-      setErrorKey(key, null)
-      try {
-        const desc = await generateReportDescription(config.openaiKey, entries, `week of ${week.label}`)
-        setWeeklyDescriptions((prev) => ({ ...prev, [week.startDate]: desc }))
-      } catch (e) {
-        setErrorKey(key, e.message)
-      } finally {
-        setLoadingKey(key, false)
-      }
-    }
-  }, [weeks, byDate, config.openaiKey])
+      return { startDate: week.startDate, label: week.label, entries }
+    }).filter((w) => w.entries.length > 0),
+  [weeks, byDate])
 
-  const generateMonthly = useCallback(async () => {
-    if (worklogs.length === 0) return
-    const key = 'monthly'
-    setLoadingKey(key, true)
-    setErrorKey(key, null)
+  // ── Daily — one call, Gemini splits by date in JSON ──────────────────────
+  const generateDaily = useCallback(async () => {
+    const activeDays = Object.fromEntries(
+      Object.entries(byDate).filter(([, entries]) => entries.length > 0),
+    )
+    if (!Object.keys(activeDays).length) return
+
+    setLoading((p) => ({ ...p, daily: true }))
+    setErrors((p)  => ({ ...p, daily: null }))
     try {
-      const label = format(new Date(year, month, 1), 'MMMM yyyy')
-      const desc = await generateReportDescription(config.openaiKey, worklogs, label)
-      setMonthlyDescription(desc)
+      const result = await generateDailyReports(config.geminiKey, activeDays, monthLabel)
+      setDailyDescriptions(result)
     } catch (e) {
-      setErrorKey(key, e.message)
+      setErrors((p) => ({ ...p, daily: e.message }))
     } finally {
-      setLoadingKey(key, false)
+      setLoading((p) => ({ ...p, daily: false }))
     }
-  }, [worklogs, config.openaiKey, year, month])
+  }, [byDate, config.geminiKey, monthLabel])
+
+  // ── Weekly — one call, Gemini splits by week in JSON ─────────────────────
+  const generateWeekly = useCallback(async () => {
+    if (!byWeek.length) return
+
+    setLoading((p) => ({ ...p, weekly: true }))
+    setErrors((p)  => ({ ...p, weekly: null }))
+    try {
+      const result = await generateWeeklyReports(config.geminiKey, byWeek, monthLabel)
+      setWeeklyDescriptions(result)
+    } catch (e) {
+      setErrors((p) => ({ ...p, weekly: e.message }))
+    } finally {
+      setLoading((p) => ({ ...p, weekly: false }))
+    }
+  }, [byWeek, config.geminiKey, monthLabel])
+
+  // ── Monthly — one call, single paragraph ─────────────────────────────────
+  const generateMonthly = useCallback(async () => {
+    if (!worklogs.length) return
+
+    setLoading((p) => ({ ...p, monthly: true }))
+    setErrors((p)  => ({ ...p, monthly: null }))
+    try {
+      const result = await generateMonthlyReport(config.geminiKey, worklogs, monthLabel)
+      setMonthlyDescription(result)
+    } catch (e) {
+      setErrors((p) => ({ ...p, monthly: e.message }))
+    } finally {
+      setLoading((p) => ({ ...p, monthly: false }))
+    }
+  }, [worklogs, config.geminiKey, monthLabel])
 
   const generateAll = useCallback(async () => {
     await Promise.all([generateDaily(), generateWeekly(), generateMonthly()])
   }, [generateDaily, generateWeekly, generateMonthly])
 
   return {
-    byDate, weeks, workdays,
+    byDate, weeks, workdays, byWeek,
     dailyDescriptions, weeklyDescriptions, monthlyDescription,
     loading, errors,
     generateDaily, generateWeekly, generateMonthly, generateAll,

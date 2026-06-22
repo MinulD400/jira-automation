@@ -1,4 +1,4 @@
-import { Clock, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
+import { Clock, ChevronDown, ChevronUp, Copy, Check, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '@/components/atoms/Badge'
 import { Spinner } from '@/components/atoms/Spinner'
@@ -50,7 +50,10 @@ export function ReportCard({ title, subtitle, badge, description, worklogs = [],
         )}
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 leading-relaxed">{error}</p>
+          </div>
         )}
 
         {!isLoading && !error && description && (

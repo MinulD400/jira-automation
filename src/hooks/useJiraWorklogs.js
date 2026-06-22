@@ -6,7 +6,6 @@ import { getMonthRange } from '@/lib/dateHelpers'
 function extractComment(comment) {
   if (!comment) return ''
   if (typeof comment === 'string') return comment
-  // Jira v3 ADF format
   if (comment?.content) {
     return comment.content
       .flatMap((block) => block.content || [])
@@ -19,17 +18,17 @@ function extractComment(comment) {
 }
 
 async function loadAllWorklogs(config, year, month) {
-  const { jiraBaseUrl, jiraEmail, jiraToken } = config
+  const { jiraEmail, jiraToken } = config
   const { startDate, endDate } = getMonthRange(year, month)
 
-  const user = await fetchCurrentUser(jiraBaseUrl, jiraEmail, jiraToken)
-  const issues = await fetchIssuesWithWorklogs(jiraBaseUrl, jiraEmail, jiraToken, startDate, endDate)
+  const user = await fetchCurrentUser(jiraEmail, jiraToken)
+  const issues = await fetchIssuesWithWorklogs(jiraEmail, jiraToken, startDate, endDate)
 
   const entries = []
   await Promise.all(
     issues.map(async (issue) => {
       const logs = await fetchWorklogs(
-        jiraBaseUrl, jiraEmail, jiraToken,
+        jiraEmail, jiraToken,
         issue.key, startDate, endDate, user.accountId,
       )
       for (const log of logs) {
@@ -53,7 +52,7 @@ export function useJiraWorklogs({ config, year, month, enabled }) {
   return useQuery({
     queryKey: queryKeys.worklogs(year, month),
     queryFn: () => loadAllWorklogs(config, year, month),
-    enabled: enabled && Boolean(config.jiraEmail && config.jiraToken),
+    enabled: enabled && Boolean(config?.jiraEmail && config?.jiraToken),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   })
