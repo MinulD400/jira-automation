@@ -53,7 +53,7 @@ function AppLayout() {
 {`VITE_JIRA_BASE_URL=https://your-domain.atlassian.net
 VITE_JIRA_EMAIL=you@company.com
 VITE_JIRA_TOKEN=your-jira-api-token
-VITE_GEMINI_KEY=your-google-gemini-api-key`}
+VITE_GROQ_KEY=gsk_...`}
             </pre>
             <p className="text-xs text-slate-400 mt-4 text-center">
               Then restart:{' '}

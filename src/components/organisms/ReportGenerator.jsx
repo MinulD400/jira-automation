@@ -309,6 +309,6 @@ ReportGenerator.propTypes = {
     jiraBaseUrl: PropTypes.string.isRequired,
     jiraEmail: PropTypes.string.isRequired,
     jiraToken: PropTypes.string.isRequired,
-    geminiKey: PropTypes.string.isRequired,
+    groqKey: PropTypes.string.isRequired,
   }).isRequired,
 }

@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo } from 'react'
-import { generateDailyReports, generateWeeklyReports, generateMonthlyReport } from '@/lib/http/geminiClient'
+import { generateDailyReports, generateWeeklyReports, generateMonthlyReport } from '@/lib/http/groqClient'
 import { getWeeksInMonth, getMonthRange, groupWorklogsByDate, getWorkdaysInRange } from '@/lib/dateHelpers'
 import { format } from 'date-fns'
 
 export function useReportGeneration({ worklogs = [], config, year, month }) {
-  const [dailyDescriptions,   setDailyDescriptions]   = useState({})
-  const [weeklyDescriptions,  setWeeklyDescriptions]  = useState({})
-  const [monthlyDescription,  setMonthlyDescription]  = useState(null)
+  const [dailyDescriptions,  setDailyDescriptions]  = useState({})
+  const [weeklyDescriptions, setWeeklyDescriptions] = useState({})
+  const [monthlyDescription, setMonthlyDescription] = useState(null)
   const [loading, setLoading] = useState({})
   const [errors,  setErrors]  = useState({})
 
@@ -17,7 +17,6 @@ export function useReportGeneration({ worklogs = [], config, year, month }) {
 
   const monthLabel = format(new Date(year, month, 1), 'MMMM yyyy')
 
-  // Build the weekly structure expected by generateWeeklyReports
   const byWeek = useMemo(() =>
     weeks.map((week) => {
       const wDays   = getWorkdaysInRange(week.startDate, week.endDate)
@@ -26,56 +25,50 @@ export function useReportGeneration({ worklogs = [], config, year, month }) {
     }).filter((w) => w.entries.length > 0),
   [weeks, byDate])
 
-  // ── Daily — one call, Gemini splits by date in JSON ──────────────────────
   const generateDaily = useCallback(async () => {
     const activeDays = Object.fromEntries(
       Object.entries(byDate).filter(([, entries]) => entries.length > 0),
     )
     if (!Object.keys(activeDays).length) return
-
     setLoading((p) => ({ ...p, daily: true }))
     setErrors((p)  => ({ ...p, daily: null }))
     try {
-      const result = await generateDailyReports(config.geminiKey, activeDays, monthLabel)
+      const result = await generateDailyReports(config.groqKey, activeDays, monthLabel)
       setDailyDescriptions(result)
     } catch (e) {
       setErrors((p) => ({ ...p, daily: e.message }))
     } finally {
       setLoading((p) => ({ ...p, daily: false }))
     }
-  }, [byDate, config.geminiKey, monthLabel])
+  }, [byDate, config.groqKey, monthLabel])
 
-  // ── Weekly — one call, Gemini splits by week in JSON ─────────────────────
   const generateWeekly = useCallback(async () => {
     if (!byWeek.length) return
-
     setLoading((p) => ({ ...p, weekly: true }))
     setErrors((p)  => ({ ...p, weekly: null }))
     try {
-      const result = await generateWeeklyReports(config.geminiKey, byWeek, monthLabel)
+      const result = await generateWeeklyReports(config.groqKey, byWeek, monthLabel)
       setWeeklyDescriptions(result)
     } catch (e) {
       setErrors((p) => ({ ...p, weekly: e.message }))
     } finally {
       setLoading((p) => ({ ...p, weekly: false }))
     }
-  }, [byWeek, config.geminiKey, monthLabel])
+  }, [byWeek, config.groqKey, monthLabel])
 
-  // ── Monthly — one call, single paragraph ─────────────────────────────────
   const generateMonthly = useCallback(async () => {
     if (!worklogs.length) return
-
     setLoading((p) => ({ ...p, monthly: true }))
     setErrors((p)  => ({ ...p, monthly: null }))
     try {
-      const result = await generateMonthlyReport(config.geminiKey, worklogs, monthLabel)
+      const result = await generateMonthlyReport(config.groqKey, worklogs, monthLabel)
       setMonthlyDescription(result)
     } catch (e) {
       setErrors((p) => ({ ...p, monthly: e.message }))
     } finally {
       setLoading((p) => ({ ...p, monthly: false }))
     }
-  }, [worklogs, config.geminiKey, monthLabel])
+  }, [worklogs, config.groqKey, monthLabel])
 
   const generateAll = useCallback(async () => {
     await Promise.all([generateDaily(), generateWeekly(), generateMonthly()])
