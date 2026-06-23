@@ -3,52 +3,55 @@ const BASE  = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'llama-3.3-70b-versatile'
 
 const PROMPTS = {
-  daily: (label, sections) => `You are a professional who writes their own daily work notes in a genuine, human voice.
-For each date below, write a short paragraph (2 to 3 sentences) describing what was done that day.
+  daily: (label, sections) => `You are a software developer and engineer writing your own professional daily work journal in first person.
+For each date below, write a concise technical paragraph (2 to 3 sentences) describing what you engineered, implemented, or investigated that day.
 
 Rules you must follow:
-- Write in first person, past tense, as if the person wrote it themselves ("I worked on...", "I spent time...", "I had a productive session...")
-- Sound natural and conversational, not robotic or corporate
-- Vary your sentence structure so each day reads differently
+- Write strictly in first person, past tense ("I implemented...", "I refactored...", "I investigated...", "I resolved...", "I designed...", "I integrated...")
+- Use precise, technical, developer-specific language — reference concepts like API development, service implementation, component architecture, debugging, code review, unit testing, deployment, database schema, backend logic, or frontend development where relevant
+- Describe the technical nature and purpose of the work — not just that a task was done, but what was built or solved and why it matters
+- Adopt an academic and professional tone, as if writing a technical progress report or engineering log
+- Vary the sentence structure naturally across different dates — do not follow the same template
 - Do not use bullet points, dashes, asterisks, hyphens, or any list symbols anywhere in the text
-- Do not copy or repeat the Jira issue titles word for word — rephrase them in your own words
-- Keep it concise but warm and human
+- Do not copy Jira issue titles verbatim — interpret and describe the underlying engineering work in your own technical words
 
-Return ONLY a valid JSON object with no extra text outside the JSON, where each key is a date string and each value is the paragraph for that day.
+Return ONLY a valid JSON object with no extra text outside the JSON, where each key is a date string (YYYY-MM-DD) and each value is the paragraph for that day.
 
 Work logs:
 ${sections}
 
 Respond with ONLY the JSON object.`,
 
-  weekly: (label, sections) => `You are a professional reflecting on their own week of work in a genuine, human voice.
-For each week below, write a paragraph (3 to 4 sentences) capturing what was accomplished that week.
+  weekly: (label, sections) => `You are a software developer and engineer writing your own professional weekly engineering summary in first person.
+For each week below, write a focused technical paragraph (3 to 4 sentences) summarising the key development work, architectural decisions, or engineering milestones you achieved that week.
 
 Rules you must follow:
-- Write in first person, past tense, as if the person wrote it themselves
-- Sound like a real person talking about their work, not a performance review
-- Highlight what mattered most that week, not just a list of tasks
+- Write strictly in first person, past tense ("I developed...", "I architected...", "I resolved...", "I contributed to...", "I delivered...")
+- Surface technically meaningful contributions — highlight what systems, services, components, or features were built, improved, or fixed, and explain the engineering significance
+- Use academic and professional language appropriate for a technical progress report or engineering retrospective
+- Emphasise the impact and purpose of the work — not just activities, but outcomes and what they enable
 - Do not use bullet points, dashes, asterisks, hyphens, or any list symbols anywhere in the text
-- Do not copy or repeat the Jira issue titles word for word — describe the work in your own words
-- Each week should feel distinct, not templated
+- Do not copy Jira issue titles verbatim — reinterpret and articulate the engineering work in technical terms
+- Each week's paragraph should feel distinct, reflecting the specific focus areas of that period
 
-Return ONLY a valid JSON object with no extra text outside the JSON, where each key is the week start date and each value is the paragraph for that week.
+Return ONLY a valid JSON object with no extra text outside the JSON, where each key is the week start date (YYYY-MM-DD) and each value is the paragraph for that week.
 
 Work logs:
 ${sections}
 
 Respond with ONLY the JSON object.`,
 
-  monthly: (label, lines) => `You are a professional writing a genuine end-of-month reflection on your own work.
-Write one paragraph (4 to 5 sentences) that captures the bigger picture of what was achieved in ${label}.
+  monthly: (label, lines) => `You are a software developer and engineer writing your own professional monthly technical reflection in first person.
+Write one cohesive paragraph (4 to 5 sentences) that articulates the breadth and depth of your engineering contributions throughout ${label}.
 
 Rules you must follow:
-- Write in first person, past tense, as if the person wrote it themselves
-- Sound thoughtful and reflective, not like a summary report generated by a machine
-- Mention the themes and areas of focus, not a mechanical list of tasks
+- Write strictly in first person, past tense ("I led...", "I engineered...", "I designed...", "I delivered...", "I collaborated on...")
+- Provide a high-level technical narrative that communicates what systems, modules, or capabilities were developed, the engineering challenges addressed, and the overall impact on the product or platform
+- Adopt a polished, academic, and professional tone — suitable for a technical portfolio, engineering review, or performance documentation
+- Highlight the themes of your work: areas of the codebase touched, types of engineering tasks (feature development, system design, debugging, infrastructure, code quality, testing), and their significance
 - Do not use bullet points, dashes, asterisks, hyphens, or any list symbols
-- Do not plagiarise or copy the Jira issue titles directly — interpret the work and express it in your own human words
-- The tone should feel like something a competent, thoughtful professional would actually write
+- Do not copy Jira issue titles verbatim — synthesise and elevate the engineering work into a coherent technical narrative in your own words
+- The result should read as something a competent, articulate software engineer would genuinely write about their own month
 
 Work logs:
 ${lines}
