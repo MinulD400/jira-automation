@@ -2,18 +2,46 @@
 const BASE  = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'llama-3.3-70b-versatile'
 
-const PROMPTS = {
-  daily: (label, sections) => `You are a software developer and engineer writing your own professional daily work journal in first person.
-For each date below, write a concise technical paragraph (2 to 3 sentences) describing what you engineered, implemented, or investigated that day.
+const BRIEF_ACTIVITY =
+  /\b(leave|half[\s-]?day|casual leave|full[\s-]?day leave|annual leave|sick leave|holiday|cricket|sport|sports|tournament|team outing|recreation|company event|social event|non[\s-]?development)\b/i
+const DEV_ACTIVITY =
+  /\b(implement|debug|integrat|configur|develop|fix|deploy|api|pos|sms|vault|refactor|code|production|module|service|backend|frontend|database|schema|masking|erp)\b/i
 
-Rules you must follow:
-- Write strictly in first person, past tense ("I implemented...", "I refactored...", "I investigated...", "I resolved...", "I designed...", "I integrated...")
-- Use precise, technical, developer-specific language — reference concepts like API development, service implementation, component architecture, debugging, code review, unit testing, deployment, database schema, backend logic, or frontend development where relevant
-- Describe the technical nature and purpose of the work — not just that a task was done, but what was built or solved and why it matters
-- Adopt an academic and professional tone, as if writing a technical progress report or engineering log
-- Vary the sentence structure naturally across different dates — do not follow the same template
-- Do not use bullet points, dashes, asterisks, hyphens, or any list symbols anywhere in the text
-- Do not copy Jira issue titles verbatim — interpret and describe the underlying engineering work in your own technical words
+function entryText(entry) {
+  return `${entry.issueSummary} ${entry.comment || ''}`
+}
+
+/** @returns {'brief' | 'mixed' | 'detailed'} */
+export function getDaySummaryStyle(entries) {
+  const blob = entries.map(entryText).join(' ')
+  const hasBrief = BRIEF_ACTIVITY.test(blob)
+  const hasDev = DEV_ACTIVITY.test(blob)
+
+  if (hasBrief && !hasDev) return 'brief'
+  if (hasBrief && hasDev) return 'mixed'
+  return 'detailed'
+}
+
+const STYLE_INSTRUCTIONS = {
+  brief:
+    'Write 1 short sentence only. State plainly that you were on leave, took a half day, or attended a non-development activity (e.g. cricket, sports, social). Do not invent technical work, systems, or engineering outcomes.',
+  mixed:
+    'Write 2 to 3 sentences. Briefly note leave, half day, or non-development activity, then summarise only the actual development work done that day. Keep non-technical portions minimal.',
+  detailed:
+    'Write a thorough technical summary of 5 to 7 sentences describing engineering work: systems touched, problems solved, approach taken, and outcomes.',
+}
+
+const PROMPTS = {
+  daily: (label, sections) => `You are a senior software engineer writing your own daily work log in first person for ${label}.
+Each date below includes a "Summary style" that controls length and tone. Follow it exactly.
+
+General rules:
+- Write strictly in first person, past tense
+- Do not use bullet points, dashes, asterisks, hyphens, or any list symbols
+- Do not copy Jira issue titles verbatim
+- For "brief" days: never pad with technical filler, production systems, or invented engineering detail
+- For "detailed" days: be highly technical — name systems, modules, APIs, integrations, debugging, configuration, and outcomes where inferable from the logs
+- Vary phrasing across dates
 
 Return ONLY a valid JSON object with no extra text outside the JSON, where each key is a date string (YYYY-MM-DD) and each value is the paragraph for that day.
 
@@ -61,43 +89,58 @@ Respond with ONLY the paragraph text.`,
 
 function parseJsonFromResponse(text) {
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-  return JSON.parse(cleaned)
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    if (match) return JSON.parse(match[0])
+    throw new Error('Model did not return valid JSON')
+  }
 }
 
-async function callGroq(apiKey, prompt) {
-  const res = await fetch(BASE, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      max_tokens: 4096,
-    }),
-  })
+async function callGroq(apiKey, prompt, retries = 4) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        max_tokens: 8192,
+      }),
+    })
 
-  if (!res.ok) {
-    const err = await res.json()
-    if (res.status === 401) throw new Error('Invalid Groq API key — check VITE_GROQ_KEY in your .env')
-    if (res.status === 429) throw new Error('Groq rate limit reached — wait a moment and try again')
-    throw new Error(err.error?.message || `Groq error ${res.status}`)
+    if (res.status === 429 && attempt < retries) {
+      const wait = 2000 * (attempt + 1)
+      await new Promise((r) => setTimeout(r, wait))
+      continue
+    }
+
+    if (!res.ok) {
+      const err = await res.json()
+      if (res.status === 401) throw new Error('Invalid Groq API key — check VITE_GROQ_KEY in your .env')
+      if (res.status === 429) throw new Error('Groq rate limit reached — wait a moment and try again')
+      throw new Error(err.error?.message || `Groq error ${res.status}`)
+    }
+
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content?.trim() ?? ''
   }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content?.trim() ?? ''
 }
 
 export async function generateDailyReports(apiKey, byDate, monthLabel) {
   const sections = Object.entries(byDate)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, entries]) => {
+      const style = getDaySummaryStyle(entries)
       const lines = entries
         .map((e) => `  - [${e.issueKey}] ${e.issueSummary}: ${e.comment || '(no comment)'}`)
         .join('\n')
-      return `${date}:\n${lines}`
+      return `${date} (Summary style: ${style} — ${STYLE_INSTRUCTIONS[style]}):\n${lines}`
     })
     .join('\n\n')
 

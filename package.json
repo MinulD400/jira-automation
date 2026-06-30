@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "reports:sample": "node scripts/generate-daily-reports.mjs --sample",
+    "reports:daily": "node scripts/generate-daily-reports.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
