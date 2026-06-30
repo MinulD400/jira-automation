@@ -31,7 +31,6 @@ Built with React + Vite, Tailwind CSS, and TanStack Query.
 | Icons | lucide-react |
 
 ---
-
 ## Getting Started
 
 ### 1. Clone the repo
@@ -51,18 +50,43 @@ VITE_JIRA_TOKEN=your-jira-api-token
 VITE_GROQ_KEY=gsk_...
 ```
 
-**Get your keys:**
-- **Jira API token** — id.atlassian.net → Security → API tokens → Create API token
-- **Groq API key** (free) — console.groq.com → API Keys → Create API Key
+### Get the required credentials
 
-### 3. Start the dev server
+#### Jira Cloud URL
+Your Jira site URL, for example:
+
+```
+https://your-company.atlassian.net
+```
+
+#### Jira Email
+Use the email address associated with your Atlassian account.
+
+#### Jira API Token
+Generate a personal API token here:
+
+👉 https://id.atlassian.com/manage-profile/security/api-tokens
+
+Click **Create API token**, give it a name, and copy the generated token into `VITE_JIRA_TOKEN`.
+
+#### Groq API Key
+Create a free Groq account and generate an API key:
+
+👉 https://console.groq.com/
+
+API Keys page:
+
+👉 https://console.groq.com/keys
+
+Copy the generated key into `VITE_GROQ_KEY`.
+
+### 3. Start the development server
 
 ```bash
 npm run dev
 ```
 
-The Vite dev server proxies all Jira API calls through `localhost` to avoid CORS issues. No backend needed.
-
+The Vite development server proxies Jira API requests through `localhost`, eliminating CORS issues without requiring a backend.
 ---
 
 ## How It Works
