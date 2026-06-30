@@ -8,8 +8,11 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "reports:sample": "node scripts/generate-daily-reports.mjs --sample",
-    "reports:daily": "node scripts/generate-daily-reports.mjs"
+    "reports:sample": "node scripts/generate-reports.mjs --sample --type daily",
+    "reports:daily": "node scripts/generate-reports.mjs --type daily",
+    "reports:weekly": "node scripts/generate-reports.mjs --type weekly",
+    "reports:monthly": "node scripts/generate-reports.mjs --type monthly",
+    "reports:all": "node scripts/generate-reports.mjs --type all"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

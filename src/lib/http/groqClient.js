@@ -149,6 +149,29 @@ export async function generateDailyReports(apiKey, byDate, monthLabel) {
 }
 
 export async function generateWeeklyReports(apiKey, byWeek, monthLabel) {
+  if (byWeek.length === 1) {
+    const { label, startDate, entries } = byWeek[0]
+    const lines = entries
+      .map((e) => `  - [${e.issueKey}] ${e.issueSummary}: ${e.comment || '(no comment)'}`)
+      .join('\n')
+    const prompt = `You are a software developer and engineer writing your own professional weekly engineering summary in first person.
+Write one focused technical paragraph (3 to 4 sentences) for the week of ${label} in ${monthLabel}, summarising the key development work, architectural decisions, or engineering milestones you achieved.
+
+Rules you must follow:
+- Write strictly in first person, past tense
+- Surface technically meaningful contributions — highlight systems, services, components, or features built, improved, or fixed
+- Mention leave, half days, or non-development activities only briefly if present; focus on engineering work
+- Do not use bullet points, dashes, asterisks, hyphens, or any list symbols
+- Do not copy Jira issue titles verbatim
+
+Work logs:
+${lines}
+
+Respond with ONLY the paragraph text.`
+    const text = await callGroq(apiKey, prompt)
+    return { [startDate]: text }
+  }
+
   const sections = byWeek
     .map(({ label, startDate, entries }) => {
       const lines = entries
